@@ -6,6 +6,11 @@ from i2cdevice.adapter import Adapter, LookupAdapter, U16ByteSwapAdapter
 
 class SensorDataAdapter(Adapter):
 
+    def __init__(self , bit_resolution = 14):
+
+        self.bit_resolution = bit_resolution
+
+
     def _encode(self, value):
         return value
 
@@ -87,14 +92,14 @@ class MSA301:
                     12: 0b01, 
                     10: 0b10, 
                     8:  0b11
-                    })),
+                    },snap = False)),
                 BitField('range', 0b00000011,  adapter=LookupAdapter(
                     {
                     2:  0b00, 
                     4:  0b01, 
                     8:  0b10, 
                     16: 0b11
-                    }))
+                    },snap = False))
 
             )),
 
@@ -333,7 +338,13 @@ class MSA301:
             print('Invalid range value ', range)
 
     def set_resolution(self, resolution):
-        valid_
+        valid_resolutions = [14 , 12 , 10 ,8]
+        if (resolution in valid_resolutions):
+            self._resolution = resolution
+            self._msa301.RESOLUTION_RANGE.set_resolution(resolution)
+        else:
+            print('Invalid resolution Value  ', resolution)
+
 
 
 
@@ -389,11 +400,13 @@ if __name__ == "__main__":
     bus = smbus.SMBus(1)
     accel = MSA301(i2c_dev=bus)
     
-    #accel.reset()
+    accel.reset()
     print (hex(accel.get_part_id()))
     accel.set_power_mode('normal')
-    accel.set_range(16)
+    #accel.set_range(345)
+    #accel.set_resolution(14)
+    accel.set_power_mode('normal')
     while (1):
-        print (accel.get_measurements())
+        print (accel.get_raw_measurements())
         time.sleep(0.2)
     
