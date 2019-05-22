@@ -23,6 +23,22 @@ class SensorDataAdapter(Adapter):
         return MSB + LSB     
         
 
+class InteruptLookupAdapter(Adapter):
+    """Special version of the look up adapter that allows for multipule values to be set at once
+    """
+    def __init__(self, lookup_table):
+        self.lookup_table = lookup_table
+      
+
+    def _decode(self, value):
+        index = list(self.lookup_table.values()).index(value)
+        return list(self.lookup_table.keys())[index]
+
+    def _encode(self, value):
+
+        return self.lookup_table[value]
+
+
 
 class MSA301:
     def __init__(self, i2c_addr=0x26, i2c_dev=None):
@@ -44,7 +60,7 @@ class MSA301:
 
 
             Register('ACCEL_X', 0x02, fields=(
-                [BitField('reading',   0xFFFF, adapter=SensorDataAdapter())]), bit_width=16, read_only=True),
+                [BitField('reading',   0xFFFF, adapter=SensorDataAdapter(bit_resolution))]), bit_width=16, read_only=True),
             
             Register('ACCEL_Y', 0x04, fields=(
                 [BitField('reading',   0xFFFF, adapter=SensorDataAdapter())]), bit_width=16, read_only=True),
@@ -151,17 +167,21 @@ class MSA301:
                 )),
 
             Register('INTERUPT_ENABLE_0', 0x16, fields=(
-                BitField('orientation_interrupt', 0b01000000),              
-                BitField('single_tap_interrupt',  0b00100000),
-                BitField('double_tap_interrupt',  0b00010000),
-                BitField('z_active_interupt',     0b00000100),
-                BitField('y_active_interupt',     0b00000010),
-                BitField('x_active_interupt',     0b00000001)
-                )),
+            	BitField('interupt',  0xFF, adapter=LookupAdapter({
+                	'orientation_interrupt':0b01000000,              
+                	'single_tap_interrupt': 0b00100000,
+                	'double_tap_interrupt': 0b00010000,
+                	'z_active_interupt':    0b00000100,
+                	'y_active_interupt':    0b00000010,
+                	'x_active_interupt':    0b00000001
+                }))
+            )),
 
             Register('INTERUPT_ENABLE_1', 0x17, fields=(
-                BitField('data_interrupt',    0b00010000),              
-                BitField('freefall_interupt', 0b00001000)
+				BitField('interrupt', 0xFF, adapter=LookupAdapter({
+					'data_interrupt':     0b00010000,
+					'freefall_interrupt': 0b00001000
+					}))
                 )),
 
             Register('INT1_MAPPING_0', 0x19, fields=(
@@ -362,6 +382,20 @@ class MSA301:
 
     def set_power_mode(self, mode):
         self._msa301.POWER_MODE_BANDWIDTH.set_power_mode(mode)
+
+    def get_interupt(self):
+    	return None
+
+    def set_interupt(self, interrupts):
+    	if interrupts is tuple:
+
+    	for interrupt in interupts:
+    		if(interupt != 'data_interrupt' or 'freefall_interrupt'):
+    			self._msa301.INTERUPT_ENABLE_1.set_interrupt(interupt)
+
+    		elif(interupt):
+
+    
 
 
 
