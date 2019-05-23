@@ -23,7 +23,7 @@ class SensorDataAdapter(Adapter):
         return MSB + LSB     
         
 
-class InteruptLookupAdapter(Adapter):
+class InterruptLookupAdapter(Adapter):
     """Special version of the look up adapter that allows for multipule values to be set at once
     """
     def __init__(self, lookup_table):
@@ -31,12 +31,28 @@ class InteruptLookupAdapter(Adapter):
       
 
     def _decode(self, value):
-        index = list(self.lookup_table.values()).index(value)
-        return list(self.lookup_table.keys())[index]
+
+        return_list = []
+    
+        for bit_index in range(8):
+            if (value & (1 << bit_index) != 0 ):
+                index = list(self.lookup_table.values()).index( 1 << bit_index )
+                return_list.append(list(self.lookup_table.keys())[index])
+
+
+
+        return return_list
 
     def _encode(self, value):
 
-        return self.lookup_table[value]
+        return_value = 0x00
+        try:
+            for item in value:
+                return_value = return_value | self.lookup_table[item]
+        except TypeError:
+            raise ValueError('interrupt settings require a list')
+
+        return return_value
 
 
 
@@ -60,7 +76,7 @@ class MSA301:
 
 
             Register('ACCEL_X', 0x02, fields=(
-                [BitField('reading',   0xFFFF, adapter=SensorDataAdapter(bit_resolution))]), bit_width=16, read_only=True),
+                [BitField('reading',   0xFFFF, adapter=SensorDataAdapter())]), bit_width=16, read_only=True),
             
             Register('ACCEL_Y', 0x04, fields=(
                 [BitField('reading',   0xFFFF, adapter=SensorDataAdapter())]), bit_width=16, read_only=True),
@@ -68,15 +84,17 @@ class MSA301:
             Register('ACCEL_Z', 0x06, fields=(
                 [BitField('reading',   0xFFFF, adapter=SensorDataAdapter())]), bit_width=16, read_only=True),
 
-            Register('MOTION_INTERUPT', 0x09, fields=(
-                BitField('orientation_interrupt',  0b01000000, read_only=True),
-                BitField('single_tap_interrupt',   0b00100000, read_only=True),
-                BitField('double_tap_interrupt',   0b00010000, read_only=True),
-                BitField('active_interrupt',       0b00000100, read_only=True),
-                BitField('freefall_interrupt',     0b00000001, read_only=True)
+            Register('MOTION_INTERRUPT', 0x09, fields=(
+                BitField('interrupts',  0xFF, read_only=True, adapter=InterruptLookupAdapter({
+                'orientation_interrupt': 0b01000000,    
+                'single_tap_interrupt' : 0b00100000, 
+                'double_tap_interrupt' : 0b00010000, 
+                'active_interrupt'     : 0b00000100, 
+                'freefall_interrupt'   : 0b00000001                
+                 })),
                 )),
 
-            Register('DATA_INTERUPT', 0x0A, fields=(
+            Register('DATA_INTERRUPT', 0x0A, fields=(
                 [BitField('new_data_interrupt', 0b00000001, read_only=True)])),
 
             Register('TAP_ACTIVE_STATUS', 0x0B, fields=(
@@ -166,22 +184,22 @@ class MSA301:
                 BitField('x_z_swap',  0b00000001)
                 )),
 
-            Register('INTERUPT_ENABLE_0', 0x16, fields=(
-            	BitField('interupt',  0xFF, adapter=LookupAdapter({
-                	'orientation_interrupt':0b01000000,              
-                	'single_tap_interrupt': 0b00100000,
-                	'double_tap_interrupt': 0b00010000,
-                	'z_active_interupt':    0b00000100,
-                	'y_active_interupt':    0b00000010,
-                	'x_active_interupt':    0b00000001
-                }))
+            Register('INTERRUPT_ENABLE', 0x16, fields=(
+                BitField('interrupts',  0xFF, adapter=InterruptLookupAdapter({
+                    'orientation_interrupt':0b01000000,              
+                    'single_tap_interrupt': 0b00100000,
+                    'double_tap_interrupt': 0b00010000,
+                    'z_active_interrupt':   0b00000100,
+                    'y_active_interrupt':   0b00000010,
+                    'x_active_interrupt':   0b00000001
+                })),
             )),
 
-            Register('INTERUPT_ENABLE_1', 0x17, fields=(
-				BitField('interrupt', 0xFF, adapter=LookupAdapter({
-					'data_interrupt':     0b00010000,
-					'freefall_interrupt': 0b00001000
-					}))
+            Register('INTERRUPT_ENABLE_1', 0x17, fields=(
+                BitField('interrupts', 0xFF, adapter=InterruptLookupAdapter({
+                    'data_interrupt':     0b00010000,
+                    'freefall_interrupt': 0b00001000
+                    })),
                 )),
 
             Register('INT1_MAPPING_0', 0x19, fields=(
@@ -334,7 +352,8 @@ class MSA301:
             
 
 
-    def twos_comp_conversion(self, val, bits):
+    def twos_comp_conversion(self, val ,bits = 14):
+        bits = 14
         if (val & (1 << (bits - 1))) != 0: # if sign bit is set e.g., 8bit: 128-255
             val = val - (1 << bits)        # compute negative value
         return val    
@@ -383,20 +402,54 @@ class MSA301:
     def set_power_mode(self, mode):
         self._msa301.POWER_MODE_BANDWIDTH.set_power_mode(mode)
 
-    def get_interupt(self):
-    	return None
+    def get_interrupt(self):
+        return self._msa301.INTERRUPT_ENABLE.get_interrupts() + self._msa301.INTERRUPT_ENABLE_1.get_interrupts() 
 
-    def set_interupt(self, interrupts):
-    	if interrupts is tuple:
 
-    	for interrupt in interupts:
-    		if(interupt != 'data_interrupt' or 'freefall_interrupt'):
-    			self._msa301.INTERUPT_ENABLE_1.set_interrupt(interupt)
 
-    		elif(interupt):
+    def enable_interrupt(self, interrupts):
 
-    
+        enable_1_interrupts =[]
+        for interrupt_item in interrupts:
+            if(interrupt_item == 'data_interrupt'):
 
+                interrupt_list_index = interrupts.index('data_interrupt')
+                enable_1_interrupts.append(interrupts.pop(interrupt_list_index))
+
+            if(interrupt_item == 'freefall_interrupt'):
+
+                interrupt_list_index = interrupts.index('freefall_interrupt')
+                enable_1_interrupts.append(interrupts.pop(interrupt_list_index))
+
+        print (interrupts)
+        print (enable_1_interrupts)
+
+        self._msa301.INTERRUPT_ENABLE.set_interrupts(interrupts)
+
+        self._msa301.INTERRUPT_ENABLE_1.set_interrupts(enable_1_interrupts)
+
+        
+         
+    def wait_for_interrupt(self, interrupts, polling_delay = 0.01):
+
+        check_interupts_enabled = self._msa301.INTERRUPT_ENABLE.get_interrupts() + self._msa301.INTERRUPT_ENABLE_1.get_interrupts()
+        #print check_interupts_enabled
+        if( interrupts not in check_interupts_enabled ):
+            return ' {0} not Enabled!'.format(interrupts)
+        triggered_interrupt = [None]
+        while (interrupts not in triggered_interrupt):
+            triggered_interrupt = self._msa301.MOTION_INTERRUPT.get_interrupts()
+            
+            if(interrupts in triggered_interrupt):
+                return triggered_interrupt
+            time.sleep(polling_delay)
+        return triggered_interrupt        
+
+
+
+
+    def disable_all_interrupts(self):
+        self._msa301.INTERRUPT_ENABLE_0 = 0x00
 
 
 
@@ -417,9 +470,9 @@ class MSA301:
         range = 0.0
         range =+ self._range
 
-        x = float(self.twos_comp_conversion(self._msa301.ACCEL_X.get_reading(), self._resolution))  * (self._range / float(math.pow( 2 , (self._resolution - 1)))) 
-        y = float(self.twos_comp_conversion(self._msa301.ACCEL_Y.get_reading(), self._resolution))  * (self._range / float(math.pow( 2 , (self._resolution - 1)))) 
-        z = float(self.twos_comp_conversion(self._msa301.ACCEL_Z.get_reading(), self._resolution))  * (self._range / float(math.pow( 2 , (self._resolution - 1)))) 
+        x = float(self.twos_comp_conversion(self._msa301.ACCEL_X.get_reading(), 14))  * (self._range / float(math.pow( 2 , (14- 1)))) 
+        y = float(self.twos_comp_conversion(self._msa301.ACCEL_Y.get_reading(), 14))  * (self._range / float(math.pow( 2 , (14 - 1)))) 
+        z = float(self.twos_comp_conversion(self._msa301.ACCEL_Z.get_reading(), 14))  * (self._range / float(math.pow( 2 , (14 - 1)))) 
 
         return x, y, z
 
@@ -433,14 +486,25 @@ if __name__ == "__main__":
 
     bus = smbus.SMBus(1)
     accel = MSA301(i2c_dev=bus)
-    
+    #print(dir(accel._msa301.INTERRUPT_ENABLE_1))
     accel.reset()
     print (hex(accel.get_part_id()))
     accel.set_power_mode('normal')
-    #accel.set_range(345)
-    #accel.set_resolution(14)
+    accel.set_range(2)
+    accel.set_resolution(14)
+    accel.disable_all_interrupts()
     accel.set_power_mode('normal')
+    accel.enable_interrupt(['double_tap_interrupt','freefall_interrupt','y_active_interrupt','freefall_interrupt'])
+    print(' {0} have been enabled '.format(accel.get_interrupt()))
+    print('double tap near sensor')
+    print(accel.wait_for_interrupt('double_tap_interrupt' , polling_delay = 0.01))
+    print('throw sensor upwards and catch')
+    print(accel.wait_for_interrupt('freefall_interrupt' , polling_delay = 0.01))
+    print("done")
+
+    
     while (1):
-        print (accel.get_raw_measurements())
+        x, y, z = accel.get_measurements()
+        print ('x-Axis: {0:.4f} y-Axis: {1:.4f} z-Axis: {2:.4f}'.format(x , y , z ))
         time.sleep(0.2)
     
