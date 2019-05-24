@@ -19,6 +19,8 @@ uninstall:
 	./uninstall.sh
 
 sanity-check:
+	@echo "Checking for DOS line-endings"
+	@! grep -IUrl --color "" --exclude-dir=.tox --exclude-dir=.git --exclude=Makefile
 	@echo "Checking library/CHANGELOG.txt"
 	@cat library/CHANGELOG.txt | grep ^${LIBRARY_VERSION}
 	@echo "Checking library/${LIBRARY_NAME}/__init__.py"
