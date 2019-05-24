@@ -352,8 +352,21 @@ class MSA301:
 
     def wait_for_interrupt(self, interrupts, polling_delay=0.01):
         check_interupts_enabled = self._msa301.INTERRUPT_ENABLE.get_interrupts() + self._msa301.INTERRUPT_ENABLE_1.get_interrupts()
+        activity_interrupt_enable_flags = ['z_active_interrupt',
+                                           'y_active_interrupt',
+                                           'x_active_interrupt']
 
-        if interrupts not in check_interupts_enabled:
+        if interrupts == 'active_interrupt':
+            flag_detected = False
+
+            for flag in activity_interrupt_enable_flags:
+                if flag in check_interupts_enabled:
+                    flag_detected = True
+
+            if flag_detected is False:
+                raise RuntimeError('{0} not Enabled!'.format(interrupts))
+
+        elif interrupts not in check_interupts_enabled:
             raise RuntimeError('{0} not Enabled!'.format(interrupts))
 
         triggered_interrupt = [None]
