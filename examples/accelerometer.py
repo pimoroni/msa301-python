@@ -4,7 +4,7 @@ import msa301
 import time
 
 print("""accelerometer.py - read XYZ data
-        
+
 Press Ctrl+C to exit.
 
 """)

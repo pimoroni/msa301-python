@@ -6,11 +6,13 @@ usage:
 	@echo "Usage: make <target>, where target is one of:\n"
 	@echo "install:       install the library locally from source"
 	@echo "uninstall:     uninstall the local library"
+	@echo "check:         peform basic integrity checks on the codebase"
 	@echo "python-readme: generate library/README.rst from README.md"
 	@echo "python-wheels: build python .whl files for distribution"
 	@echo "python-sdist:  build python source distribution"
 	@echo "python-clean:  clean python build and dist directories"
-	@echo "python-dist:   build all python distribution files" 
+	@echo "python-dist:   build all python distribution files"
+	@echo "python-testdeploy: build all and deploy to test PyPi"
 
 install:
 	./install.sh
@@ -18,9 +20,11 @@ install:
 uninstall:
 	./uninstall.sh
 
-sanity-check:
+check:
+	@echo "Checking for trailing whitespace"
+	@! grep -IUrn --color "[[:blank:]]$$" --exclude-dir=.tox --exclude-dir=.git --exclude=PKG-INFO
 	@echo "Checking for DOS line-endings"
-	@! grep -IUrl --color "" --exclude-dir=.tox --exclude-dir=.git --exclude=Makefile
+	@! grep -IUrn --color "" --exclude-dir=.tox --exclude-dir=.git --exclude=Makefile
 	@echo "Checking library/CHANGELOG.txt"
 	@cat library/CHANGELOG.txt | grep ^${LIBRARY_VERSION}
 	@echo "Checking library/${LIBRARY_NAME}/__init__.py"
@@ -51,5 +55,8 @@ python-clean:
 python-dist: python-clean python-wheels python-sdist
 	ls library/dist
 
-python-deploy: sanity-check python-dist
+python-testdeploy: python-dist
+	twine upload --repository-url https://test.pypi.org/legacy/ library/dist/*
+
+python-deploy: check python-dist
 	twine upload library/dist/*
