@@ -1,8 +1,8 @@
 #!/bin/bash
 
-PACKAGE="ltr559"
+PACKAGE="msa301"
 
-printf "LTR559 Python Library: Uninstaller\n\n"
+printf "MSA301 Python Library: Uninstaller\n\n"
 
 if [ $(id -u) -ne 0 ]; then
 	printf "Script must be run as root. Try 'sudo ./uninstall.sh'\n"
