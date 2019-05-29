@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import time
 from i2cdevice import Device, Register, BitField
 from i2cdevice.adapter import Adapter, LookupAdapter
@@ -417,7 +416,7 @@ class MSA301:
         return offset_x, offset_y, offset_z
 
     def set_raw_offsets(self, offset_x=0, offset_y=0, offset_z=0):
-        if (-128 < offset_z < 128 and -128 < offset_y < 128 and -128 < offset_x < 128):
+        if (-128 <= offset_z <= 128 and -128 <= offset_y <= 128 and -128 <= offset_x <= 128):
             self._msa301.X_OFFSET.set_offset(offset_x)
             self._msa301.Y_OFFSET.set_offset(offset_y)
             self._msa301.Z_OFFSET.set_offset(offset_z)
