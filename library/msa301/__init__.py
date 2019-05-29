@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import time
 from i2cdevice import Device, Register, BitField
 from i2cdevice.adapter import Adapter, LookupAdapter
@@ -290,10 +291,18 @@ class MSA301:
         # print("Sensor initialized with reading range of {0} and resolution of {1}".format(self._range, self._resolution))
 
     def twos_comp_conversion(self, val, bits=14):
-        bits = 14
         if (val & (1 << (bits - 1))) != 0:  # if sign bit is set e.g., 8bit: 128-255
             val = val - (1 << bits)         # compute negative value
         return val
+
+    def twos_comp_to_bin(self, val):
+
+        result = 0x00
+        if val < 0:
+            result = (1 << 7) + (128 + val)
+        else:
+            result = val
+        return result
 
     def reset(self):
         self._msa301.SOFT_RESET.set_soft_reset(True)
@@ -387,9 +396,9 @@ class MSA301:
         self._msa301.INTERRUPT_ENABLE_1.set_enable(0x00)
 
     def get_raw_measurements(self):
-        x = self.twos_comp_conversion(self._msa301.ACCEL_X.get_reading(), self._resolution)
-        y = self.twos_comp_conversion(self._msa301.ACCEL_Y.get_reading(), self._resolution)
-        z = self.twos_comp_conversion(self._msa301.ACCEL_Z.get_reading(), self._resolution)
+        x = self.twos_comp_conversion(self._msa301.ACCEL_X.get_reading())
+        y = self.twos_comp_conversion(self._msa301.ACCEL_Y.get_reading())
+        z = self.twos_comp_conversion(self._msa301.ACCEL_Z.get_reading())
 
         return x, y, z
 
@@ -399,6 +408,40 @@ class MSA301:
         z = float(self.twos_comp_conversion(self._msa301.ACCEL_Z.get_reading(), 14)) * (self._range / 8192.0)
 
         return x, y, z
+
+    def get_raw_offsets(self):
+        offset_x = self._msa301.X_OFFSET.get_offset()
+        offset_y = self._msa301.Y_OFFSET.get_offset()
+        offset_z = self._msa301.Z_OFFSET.get_offset()
+
+        return offset_x, offset_y, offset_z
+
+    def set_raw_offsets(self, offset_x=0, offset_y=0, offset_z=0):
+        if (-128 < offset_z < 128 and -128 < offset_y < 128 and -128 < offset_x < 128):
+            self._msa301.X_OFFSET.set_offset(offset_x)
+            self._msa301.Y_OFFSET.set_offset(offset_y)
+            self._msa301.Z_OFFSET.set_offset(offset_z)
+
+        else:
+            raise ValueError('Offset must be between -128 to 128')
+
+    def get_offsets(self):
+        x, y, z = self.get_raw_offsets()
+
+        offset_x = -self.twos_comp_conversion(x, 8) * 0.0039
+        offset_y = -self.twos_comp_conversion(y, 8) * 0.0039
+        offset_z = -self.twos_comp_conversion(z, 8) * 0.0039
+
+        return offset_x, offset_y, offset_z
+
+    def set_offsets(self, offset_x=0, offset_y=0, offset_z=0):
+        if (-0.5 <= offset_z <= 0.5 and -0.5 <= offset_y <= 0.5 and -0.5 <= offset_x <= 0.5):
+            x = self.twos_comp_to_bin(int(-offset_x / 0.0039))
+            y = self.twos_comp_to_bin(int(-offset_y / 0.0039))
+            z = self.twos_comp_to_bin(int(-offset_z / 0.0039))
+            self.set_raw_offsets(x, y, z)
+        else:
+            raise ValueError('Offset must be between -0.5g to 0.5g')
 
 
 if __name__ == "__main__":
