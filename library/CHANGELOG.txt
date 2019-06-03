@@ -1,14 +1,3 @@
-0.0.3
------
-
-* Fix PyPi readme formatting
-
-0.0.2
------
-
-* Added default light-sensor options
-* Fixed bugs & linted
-
 0.0.1
 -----
 
