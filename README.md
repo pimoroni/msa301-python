@@ -2,8 +2,8 @@
 
 [![Build Status](https://travis-ci.com/pimoroni/msa301-python.svg?branch=master)](https://travis-ci.com/pimoroni/msa301-python)
 [![Coverage Status](https://coveralls.io/repos/github/pimoroni/msa301-python/badge.svg?branch=master)](https://coveralls.io/github/pimoroni/msa301-python?branch=master)
-[![PyPi Package](https://img.shields.io/pypi/v/msa301.svg)](https://pypi.python.org/pypi/msa301-python)
-[![Python Versions](https://img.shields.io/pypi/pyversions/msa301.svg)](https://pypi.python.org/pypi/msa301-python)
+[![PyPi Package](https://img.shields.io/pypi/v/msa301.svg)](https://pypi.python.org/pypi/msa301)
+[![Python Versions](https://img.shields.io/pypi/pyversions/msa301.svg)](https://pypi.python.org/pypi/msa301)
 
 # Installing
 

@@ -21,6 +21,6 @@ Latest/development library from GitHub:
 .. |Coverage Status| image:: https://coveralls.io/repos/github/pimoroni/msa301-python/badge.svg?branch=master
    :target: https://coveralls.io/github/pimoroni/msa301-python?branch=master
 .. |PyPi Package| image:: https://img.shields.io/pypi/v/msa301.svg
-   :target: https://pypi.python.org/pypi/msa301-python
+   :target: https://pypi.python.org/pypi/msa301
 .. |Python Versions| image:: https://img.shields.io/pypi/pyversions/msa301.svg
-   :target: https://pypi.python.org/pypi/msa301-python
+   :target: https://pypi.python.org/pypi/msa301
