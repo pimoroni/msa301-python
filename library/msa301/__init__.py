@@ -60,15 +60,11 @@ class MSA301:
                 BitField('seft_reset_alt', 0b00000100)
             )),
             Register('PARTID', 0x01, fields=(BitField('id', 0xFF),)),
-            Register('ACCEL_X', 0x02, fields=(
-                BitField('reading', 0xFFFF, adapter=SensorDataAdapter()),
-            ), bit_width=16, read_only=True),
-            Register('ACCEL_Y', 0x04, fields=(
-                BitField('reading', 0xFFFF, adapter=SensorDataAdapter()),
-            ), bit_width=16, read_only=True),
-            Register('ACCEL_Z', 0x06, fields=(
-                BitField('reading', 0xFFFF, adapter=SensorDataAdapter()),
-            ), bit_width=16, read_only=True),
+            Register('ACCEL', 0x02, fields=(
+                BitField('x', 0x00000000FFFF, adapter=SensorDataAdapter()),
+                BitField('y', 0x0000FFFF0000, adapter=SensorDataAdapter()),
+                BitField('z', 0xFFFF00000000, adapter=SensorDataAdapter()),
+            ), bit_width=48, read_only=True),
             Register('MOTION_INTERRUPT', 0x09, fields=(
                 BitField('interrupts', 0xFF, read_only=True, adapter=InterruptLookupAdapter({
                     'orientation_interrupt': 0b01000000,
@@ -275,19 +271,16 @@ class MSA301:
             Register('Z_BLOCK', 0x2D, fields=(
                 BitField('setting', 0b00001111),  # defines the block acc_z between 0g to 0.9375g
             )),
-            Register('X_OFFSET', 0x38, fields=(
-                BitField('offset', 0xFF),         # the offset compensation value for X axis, 1LSB is 3.9mg
-            )),
-            Register('Y_OFFSET', 0x39, fields=(
-                BitField('offset', 0xFF),         # the offset compensation value for Y axis, 1LSB is 3.9mg
-            )),
-            Register('Z_OFFSET', 0x3A, fields=(
-                BitField('offset', 0xFF),         # the offset compensation value for Z axis, 1LSB is 3.9mg
-            ))
+            Register('OFFSET', 0x38, fields=(
+                BitField('x', 0x0000FF),          # the offset compensation value for X axis, 1LSB is 3.9mg
+                BitField('y', 0x00FF00),          # the offset compensation value for Y axis, 1LSB is 3.9mg
+                BitField('z', 0xFF0000),          # the offset compensation value for Z axis, 1LSB is 3.9mg
+            ), bit_width=24)
         ))
-        self._resolution = self._msa301.RESOLUTION_RANGE.get_resolution()
-        self._range = self._msa301.RESOLUTION_RANGE.get_range()
-        # print("Sensor initialized with reading range of {0} and resolution of {1}".format(self._range, self._resolution))
+
+        res_range = self._msa301.get('RESOLUTION_RANGE')
+        self._resolution = res_range.resolution
+        self._range = res_range.range
 
     def twos_comp_conversion(self, val, bits=14):
         if (val & (1 << (bits - 1))) != 0:  # if sign bit is set e.g., 8bit: 128-255
@@ -304,17 +297,17 @@ class MSA301:
         return result
 
     def reset(self):
-        self._msa301.SOFT_RESET.set_soft_reset(True)
+        self._msa301.set('SOFT_RESET', soft_reset=True)
         time.sleep(0.01)
 
     def get_part_id(self):
-        return self._msa301.PARTID.get_id()
+        return self._msa301.get('PARTID').id
 
     def set_range(self, value):
         valid_ranges = [2, 4, 8, 16]
         if (value in valid_ranges):
             self._range = value
-            self._msa301.RESOLUTION_RANGE.set_range(value)
+            self._msa301.set('RESOLUTION_RANGE', range=value)
         else:
             raise ValueError('Invalid range value {}'.format(value))
 
@@ -322,7 +315,7 @@ class MSA301:
         valid_resolutions = [14, 12, 10, 8]
         if (resolution in valid_resolutions):
             self._resolution = resolution
-            self._msa301.RESOLUTION_RANGE.set_resolution(resolution)
+            self._msa301.set('RESOLUTION_RANGE', resolution=resolution)
         else:
             raise ValueError('Invalid resolution Value {}'.format(resolution))
 
@@ -330,19 +323,19 @@ class MSA301:
         return self._range, self._resolution
 
     def set_output_data_rate(self, rate):
-        self._msa301.DISABLE_AXIS_ODR.set_output_data_rate(rate)
+        self._msa301.set('DISABLE_AXIS_ODR', output_data_rate=rate)
 
     def get_output_data_rate(self):
-        return self._msa301.DISABLE_AXIS_ODR.get_output_data_rate()
+        return self._msa301.get('DISABLE_AXIS_ODR').output_data_rate
 
     def get_power_mode(self):
-        return self._msa301.POWER_MODE_BANDWIDTH.get_power_mode()
+        return self._msa301.get('POWER_MODE_BANDWIDTH').power_mode
 
     def set_power_mode(self, mode):
-        self._msa301.POWER_MODE_BANDWIDTH.set_power_mode(mode)
+        self._msa301.set('POWER_MODE_BANDWIDTH', power_mode=mode)
 
     def get_interrupt(self):
-        return self._msa301.INTERRUPT_ENABLE.get_interrupts() + self._msa301.INTERRUPT_ENABLE_1.get_interrupts()
+        return self._msa301.get('INTERRUPT_ENABLE').interrupts + self._msa301.get('INTERRUPT_ENABLE_1').interrupts
 
     def enable_interrupt(self, interrupts):
         enable_1_interrupts = []
@@ -355,11 +348,11 @@ class MSA301:
                 interrupt_list_index = interrupts.index('freefall_interrupt')
                 enable_1_interrupts.append(interrupts.pop(interrupt_list_index))
 
-        self._msa301.INTERRUPT_ENABLE.set_interrupts(interrupts)
-        self._msa301.INTERRUPT_ENABLE_1.set_interrupts(enable_1_interrupts)
+        self._msa301.set('INTERRUPT_ENABLE', interrupts=interrupts)
+        self._msa301.set('INTERRUPT_ENABLE_1', interrupts=enable_1_interrupts)
 
     def wait_for_interrupt(self, interrupts, polling_delay=0.01):
-        check_interupts_enabled = self._msa301.INTERRUPT_ENABLE.get_interrupts() + self._msa301.INTERRUPT_ENABLE_1.get_interrupts()
+        check_interupts_enabled = self.get_interrupt()
         activity_interrupt_enable_flags = ['z_active_interrupt',
                                            'y_active_interrupt',
                                            'x_active_interrupt']
@@ -380,7 +373,7 @@ class MSA301:
         triggered_interrupt = [None]
 
         while interrupts not in triggered_interrupt:
-            triggered_interrupt = self._msa301.MOTION_INTERRUPT.get_interrupts()
+            triggered_interrupt = self._msa301.get('MOTION_INTERRUPT').interrupts
 
             if interrupts in triggered_interrupt:
                 return triggered_interrupt
@@ -391,35 +384,33 @@ class MSA301:
 
     def disable_all_interrupts(self):
         # TODO Verify that this works!
-        self._msa301.INTERRUPT_ENABLE.set_enable(0x00)
-        self._msa301.INTERRUPT_ENABLE_1.set_enable(0x00)
+        self._msa301.set('INTERRUPT_ENABLE', enable=0x00)
+        self._msa301.set('INTERRUPT_ENABLE_1', enable=0x00)
 
     def get_raw_measurements(self):
-        x = self.twos_comp_conversion(self._msa301.ACCEL_X.get_reading())
-        y = self.twos_comp_conversion(self._msa301.ACCEL_Y.get_reading())
-        z = self.twos_comp_conversion(self._msa301.ACCEL_Z.get_reading())
+        accel = self._msa301.get('ACCEL')
+        x = self.twos_comp_conversion(accel.x)
+        y = self.twos_comp_conversion(accel.y)
+        z = self.twos_comp_conversion(accel.z)
 
         return x, y, z
 
     def get_measurements(self):
-        x = float(self.twos_comp_conversion(self._msa301.ACCEL_X.get_reading(), 14)) * (self._range / 8192.0)
-        y = float(self.twos_comp_conversion(self._msa301.ACCEL_Y.get_reading(), 14)) * (self._range / 8192.0)
-        z = float(self.twos_comp_conversion(self._msa301.ACCEL_Z.get_reading(), 14)) * (self._range / 8192.0)
+        accel = self._msa301.get('ACCEL')
+        x = float(self.twos_comp_conversion(accel.x, 14)) * (self._range / 8192.0)
+        y = float(self.twos_comp_conversion(accel.y, 14)) * (self._range / 8192.0)
+        z = float(self.twos_comp_conversion(accel.z, 14)) * (self._range / 8192.0)
 
         return x, y, z
 
     def get_raw_offsets(self):
-        offset_x = self._msa301.X_OFFSET.get_offset()
-        offset_y = self._msa301.Y_OFFSET.get_offset()
-        offset_z = self._msa301.Z_OFFSET.get_offset()
+        offset = self._msa301.get('OFFSET')
 
-        return offset_x, offset_y, offset_z
+        return offset.x, offset.y, offset.z
 
     def set_raw_offsets(self, offset_x=0, offset_y=0, offset_z=0):
         if (-128 <= offset_z <= 128 and -128 <= offset_y <= 128 and -128 <= offset_x <= 128):
-            self._msa301.X_OFFSET.set_offset(offset_x)
-            self._msa301.Y_OFFSET.set_offset(offset_y)
-            self._msa301.Z_OFFSET.set_offset(offset_z)
+            self._msa301.set('OFFSET', x=offset_x, y=offset_y, z=offset_z)
 
         else:
             raise ValueError('Offset must be between -128 to 128')
