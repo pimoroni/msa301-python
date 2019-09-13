@@ -39,7 +39,7 @@ classifiers = ['Development Status :: 4 - Beta',
 
 setup(
     name='msa301',
-    version='0.0.1',
+    version='0.0.2',
     author='Philip Howard',
     author_email='phil@pimoroni.com',
     description="""Python library for the MSA301 3-axis accelerometer.""",
@@ -49,5 +49,5 @@ setup(
     url='http://www.pimoroni.com',
     classifiers=classifiers,
     packages=['msa301'],
-    install_requires=['i2cdevice']
+    install_requires=['i2cdevice>=0.0.6']
 )
