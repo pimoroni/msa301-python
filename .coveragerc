@@ -1,4 +1,3 @@
 [run]
-source = msa301
 omit =
     .tox/*
