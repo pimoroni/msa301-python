@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
-import msa301
 import time
+
+import msa301
 
 print("""accelerometer.py - read XYZ data
 

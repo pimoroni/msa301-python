@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
-import msa301
 import time
+
+import msa301
 
 print("""detect-axis-move.py - Detect movement and print delta.
 
